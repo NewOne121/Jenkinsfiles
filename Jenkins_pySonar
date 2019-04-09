@@ -13,7 +13,7 @@ pipeline {
 						print ('Performing UNIT tests...')
 						goUnit()
                 	}
-                	else {
+					else {
 						if (env.BRANCH_NAME =~ /(master)/) {
 							echo ("This is master branch")
                  			print ('Performing UNIT tests...')
@@ -29,11 +29,11 @@ pipeline {
 							goUnit()
 							print ('Performing Sonar testing.')
 							goSonar()
-                 		}
-            		}
-            	}
-        	}
-    	}
+						}
+					}
+				}
+			}
+		}
 	stage ('Summarize tests results') {
 		steps {
 			script {
@@ -55,7 +55,7 @@ pipeline {
 			script {
 				if (set_unstable == 'yes') {
 					currentBuild.result = 'UNSTABLE'
-			 	}
+				}
           		if (currentBuild.result == 'UNSTABLE') {
 					print ('Current build is unstable due errors during tests')
 				}
@@ -66,41 +66,41 @@ pipeline {
 }
 
 void goLint() {
-  lint_status = sh (script:'''#!/bin/bash
-      LINT_STATUS="PASSED"
-      git clone https://github.com/PyCQA/pycodestyle.git > /dev/null 2>&1
-      PYLINT="${PWD}/pycodestyle/pycodestyle.py"
-      for file in $(find ${PWD} -maxdepth 1 -type f -name \'*\\.py\' | xargs -n1);
-      do
-      CHECK="$($PYLINT $file)"
-        if [ "$CHECK" != "" ];
-          then
-            LINT_STATUS="FAILED"
-        fi;
-      done
-      echo $LINT_STATUS''',
-    returnStdout: true).trim()
+	lint_status = sh (script:'''#!/bin/bash
+		LINT_STATUS="PASSED"
+		git clone https://github.com/PyCQA/pycodestyle.git > /dev/null 2>&1
+		PYLINT="${PWD}/pycodestyle/pycodestyle.py"
+		for file in $(find ${PWD} -maxdepth 1 -type f -name \'*\\.py\' | xargs -n1);
+		do
+		CHECK="$($PYLINT $file)"
+		if [ "$CHECK" != "" ];
+			then
+				LINT_STATUS="FAILED"
+		fi;
+		done
+		echo $LINT_STATUS''',
+	returnStdout: true).trim()
 }
 
 void goUnit() {
 	unit_status = sh (script:'''#!/bin/bash
-			UNIT_STATUS="PASSED"
-			python -m unittest discover ./test \"*.py\"
-			if [[ "$?" != "0" ]];
-				then
-					UNIT_STATUS="FAILED"
-			fi
-			echo $UNIT_STATUS	''',
+		UNIT_STATUS="PASSED"
+		python -m unittest discover ./test \"*.py\"
+		if [[ "$?" != "0" ]];
+			then
+				UNIT_STATUS="FAILED"
+		fi
+		echo $UNIT_STATUS	''',
 	returnStdout: true).trim()
 }
 
 void goSonar() {
 	env.sonarqubeScannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-  withSonarQubeEnv('GlobalSonar') {
-	 	sh '$sonarqubeScannerHome/bin/sonar-scanner -Dsonar.projectKey=$projectKey -Dsonar.sources=. -Dsonar.exclusions=pycodestyle/**'
-  }
-		def qualitygate = waitForQualityGate()
-    if (qualitygate.status != "OK") {
-    	error "CRITICAL: Pipeline aborted due to quality gate coverage failure: ${qualitygate.status}"
-    }
+	withSonarQubeEnv('GlobalSonar') {
+		sh '$sonarqubeScannerHome/bin/sonar-scanner -Dsonar.projectKey=$projectKey -Dsonar.sources=. -Dsonar.exclusions=pycodestyle/**'
+	}
+	def qualitygate = waitForQualityGate()
+	if (qualitygate.status != "OK") {
+		error "CRITICAL: Pipeline aborted due to quality gate coverage failure: ${qualitygate.status}"
+	}
 }
