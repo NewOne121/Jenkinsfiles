@@ -90,7 +90,7 @@ void goUnit() {
 			then
 				UNIT_STATUS="FAILED"
 		fi
-		echo $UNIT_STATUS	''',
+		echo $UNIT_STATUS''',
 	returnStdout: true).trim()
 }
 
