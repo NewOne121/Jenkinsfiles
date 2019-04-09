@@ -1,39 +1,39 @@
 pipeline {
-  agent any
-  stages {
-    stage ('Identify branch type and perform tests') {
-        steps {
-            script {
-                set_unstable = 'no'
-								score = 0
-								if (env.BRANCH_NAME =~ /^(?!.*^(master|PR-[0-9]+)).*/) {
-                    echo ("This is development branch, named $BRANCH_NAME")
-                    print ('Performing LINT testing...')
-										goLint()
-                    print ('Performing UNIT tests...')
-										goUnit()
-                }
-                else {
-                 if (env.BRANCH_NAME =~ /(master)/) {
-									 echo ("This is master branch")
-                   print ('Performing UNIT tests...')
-									 goUnit()
-									 print ('Performing Sonar tests...')
-									 goSonar()
-                 }
-                   if (env.BRANCH_NAME =~ /(PR)-[0-9]+$/) {
-                     echo ("Pull request received, performing tests")
-                     print ('Performing LINT testing...')
-										 goLint()
-                     print ('Performing UNIT tests...')
-										 goUnit()
-										 print ('Performing Sonar testing.')
-										 goSonar()
-                   }
-                }
-            }
-        }
-    }
+	agent any
+  	stages {
+		stage ('Identify branch type and perform tests') {
+        	steps {
+            	script {
+                	set_unstable = 'no'
+					score = 0
+					if (env.BRANCH_NAME =~ /^(?!.*^(master|PR-[0-9]+)).*/) {
+						echo ("This is development branch, named $BRANCH_NAME")
+						print ('Performing LINT testing...')
+						goLint()
+						print ('Performing UNIT tests...')
+						goUnit()
+                	}
+                	else {
+						if (env.BRANCH_NAME =~ /(master)/) {
+							echo ("This is master branch")
+                 			print ('Performing UNIT tests...')
+							goUnit()
+							print ('Performing Sonar tests...')
+							goSonar()
+        	         	}
+            	     	if (env.BRANCH_NAME =~ /(PR)-[0-9]+$/) {
+							echo ("Pull request received, performing tests")
+							print ('Performing LINT testing...')
+							goLint()
+	                    	print ('Performing UNIT tests...')
+							goUnit()
+							print ('Performing Sonar testing.')
+							goSonar()
+                 		}
+            		}
+            	}
+        	}
+    	}
 	stage ('Summarize tests results') {
 		steps {
 			script {
@@ -51,17 +51,17 @@ pipeline {
 		}
 	}
     stage ('Set build status') {
-      steps {
-        script {
-          if (set_unstable == 'yes') {
-            currentBuild.result = 'UNSTABLE'
-			 	  }
-          if (currentBuild.result == 'UNSTABLE') {
+		steps {
+			script {
+				if (set_unstable == 'yes') {
+					currentBuild.result = 'UNSTABLE'
+			 	}
+          		if (currentBuild.result == 'UNSTABLE') {
 					print ('Current build is unstable due errors during tests')
-          }
-        }
-      }
-    }
+				}
+			}
+		}
+	}
   }
 }
 
