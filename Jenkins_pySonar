@@ -1,10 +1,10 @@
 pipeline {
-	agent any
-  	stages {
+	agent { label 'python' }
+	stages {
 		stage ('Identify branch type and perform tests') {
-        	steps {
-            	script {
-                	set_unstable = 'no'
+			steps {
+				script {
+					set_unstable = 'no'
 					score = 0
 					if (env.BRANCH_NAME =~ /^(?!.*^(master|PR-[0-9]+)).*/) {
 						echo ("This is development branch, named $BRANCH_NAME")
@@ -12,85 +12,87 @@ pipeline {
 						goLint()
 						print ('Performing UNIT tests...')
 						goUnit()
-                	}
-					else {
-						if (env.BRANCH_NAME =~ /(master)/) {
-							echo ("This is master branch")
-                 			print ('Performing UNIT tests...')
-							goUnit()
-							print ('Performing Sonar tests...')
-							goSonar()
-        	         	}
-            	     	if (env.BRANCH_NAME =~ /(PR)-[0-9]+$/) {
-							echo ("Pull request received, performing tests")
-							print ('Performing LINT testing...')
-							goLint()
-	                    	print ('Performing UNIT tests...')
-							goUnit()
-							print ('Performing Sonar testing.')
-							goSonar()
+					}
+						else {
+							if (env.BRANCH_NAME =~ /(master)/) {
+								echo ("This is master branch")
+								print ('Performing UNIT tests...')
+								goUnit()
+								print ('Performing Sonar tests...')
+								goSonar()
+							}
+							if (env.BRANCH_NAME =~ /(PR)-[0-9]+$/) {
+								echo ("Pull request received, performing tests")
+								print ('Performing LINT testing...')
+								goLint()
+								print ('Performing UNIT tests...')
+								goUnit()
+								print ('Performing Sonar testing.')
+								goSonar()
+							}
 						}
+				}
+			}
+		}
+		stage ('Summarize tests results') {
+			steps {
+				script {
+					if (env.lint_status == "FAILED") {
+						score = score + 1;
+						print ("Lint tests failed")
+					}
+					if (env.unit_status == "FAILED") {
+						score = score + 1;
+						print ("Unit tests failed")
+					}
+					if (env.sonar_status == "FAILED") {
+						score = score + 1;
+						print ("Sonar returned WARN status")
+					}
+					if (score != 0) {
+						set_unstable = "yes"
+					}
+				}
+			print ('Testing score is: ' + score);
+			}
+		}
+		stage ('Set build status') {
+			steps {
+				script {
+					if (set_unstable == 'yes') {
+						currentBuild.result = 'UNSTABLE'
+					}
+					if (currentBuild.result == 'UNSTABLE') {
+						print ('Current build is unstable due errors during tests')
 					}
 				}
 			}
 		}
-	stage ('Summarize tests results') {
-		steps {
-			script {
-				if (env.lint_status == "FAILED" ) {
-					score = score + 1;
-				}
-				if (env.unit_status == "FAILED" ) {
-					score = score + 1;
-				}
-				if (score != 0) {
-					set_unstable = "yes"
-				}
-			}
-			print ('Score is: ' + score);
-		}
 	}
-    stage ('Set build status') {
-		steps {
-			script {
-				if (set_unstable == 'yes') {
-					currentBuild.result = 'UNSTABLE'
-				}
-          		if (currentBuild.result == 'UNSTABLE') {
-					print ('Current build is unstable due errors during tests')
-				}
-			}
-		}
-	}
-  }
 }
 
 void goLint() {
-	lint_status = sh (script:'''#!/bin/bash
-		LINT_STATUS="PASSED"
-		git clone https://github.com/PyCQA/pycodestyle.git > /dev/null 2>&1
-		PYLINT="${PWD}/pycodestyle/pycodestyle.py"
-		for file in $(find ${PWD} -maxdepth 1 -type f -name \'*\\.py\' | xargs -n1);
-		do
-		CHECK="$($PYLINT $file)"
-		if [ "$CHECK" != "" ];
-			then
-				LINT_STATUS="FAILED"
-		fi;
-		done
-		echo $LINT_STATUS''',
-	returnStdout: true).trim()
+  env.lint_status = sh (script:'''#!/bin/bash
+    LINT_STATUS="PASSED"
+    git clone https://github.com/PyCQA/pycodestyle.git > /dev/null 2>&1
+    ./pycodestyle/pycodestyle.py ./ --exclude=pycodestyle --ignore=E501 -qq; ltres="$?" || true
+    if [ "$ltres" != "0" ];
+      then
+        LINT_STATUS="FAILED"
+    fi
+    echo $LINT_STATUS''',
+  returnStdout: true).trim()
 }
 
 void goUnit() {
 	unit_status = sh (script:'''#!/bin/bash
 		UNIT_STATUS="PASSED"
-		python -m unittest discover ./test \"*.py\"
+		python -m unittest discover ${PWD}/tests "*.py"
 		if [[ "$?" != "0" ]];
 			then
 				UNIT_STATUS="FAILED"
 		fi
-		echo $UNIT_STATUS''',
+		echo $UNIT_STATUS	''',
 	returnStdout: true).trim()
 }
 
@@ -101,6 +103,11 @@ void goSonar() {
 	}
 	def qualitygate = waitForQualityGate()
 	if (qualitygate.status != "OK") {
-		error "CRITICAL: Pipeline aborted due to quality gate coverage failure: ${qualitygate.status}"
+		if (qualitygate.status == "WARN") {
+			sonar_status = "FAILED"
+		}
+		else {
+			error "CRITICAL: Pipeline aborted due to quality gate coverage failure: ${qualitygate.status}"
+		}
 	}
 }
