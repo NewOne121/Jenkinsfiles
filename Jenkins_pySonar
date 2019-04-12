@@ -1,74 +1,74 @@
 pipeline {
-	agent { label 'python' }
-	stages {
-		stage ('Identify branch type and perform tests') {
-			steps {
-				script {
-					set_unstable = 'no'
-					score = 0
-					if (env.BRANCH_NAME =~ /^(?!.*^(master|PR-[0-9]+)).*/) {
-						echo ("This is development branch, named $BRANCH_NAME")
-						print ('Performing LINT testing...')
-						goLint()
-						print ('Performing UNIT tests...')
-						goUnit()
-					}
-						else {
-							if (env.BRANCH_NAME =~ /(master)/) {
-								echo ("This is master branch")
-								print ('Performing UNIT tests...')
-								goUnit()
-								print ('Performing Sonar tests...')
-								goSonar()
-							}
-							if (env.BRANCH_NAME =~ /(PR)-[0-9]+$/) {
-								echo ("Pull request received, performing tests")
-								print ('Performing LINT testing...')
-								goLint()
-								print ('Performing UNIT tests...')
-								goUnit()
-								print ('Performing Sonar testing.')
-								goSonar()
-							}
-						}
-				}
-			}
-		}
-		stage ('Summarize tests results') {
-			steps {
-				script {
-					if (env.lint_status == "FAILED") {
-						score = score + 1;
-						print ("Lint tests failed")
-					}
-					if (env.unit_status == "FAILED") {
-						score = score + 1;
-						print ("Unit tests failed")
-					}
-					if (env.sonar_status == "FAILED") {
-						score = score + 1;
-						print ("Sonar returned WARN status")
-					}
-					if (score != 0) {
-						set_unstable = "yes"
-					}
-				}
-			print ('Testing score is: ' + score);
-			}
-		}
-		stage ('Set build status') {
-			steps {
-				script {
-					if (set_unstable == 'yes') {
-						currentBuild.result = 'UNSTABLE'
-					}
-					if (currentBuild.result == 'UNSTABLE') {
-						print ('Current build is unstable due errors during tests')
-					}
-				}
-			}
-		}
-	}
+  agent { label 'python2' }
+  stages {
+    stage ('Identify branch type and perform tests') {
+      steps {
+        script {
+          set_unstable = 'no'
+          score = 0
+          if (env.BRANCH_NAME =~ /^(?!.*^(master|PR-[0-9]+)).*/) {
+            echo ("This is development branch, named $BRANCH_NAME")
+            print ('Performing LINT testing...')
+            goLint()
+            print ('Performing UNIT tests...')
+            goUnit()
+          }
+            else {
+              if (env.BRANCH_NAME =~ /(master)/) {
+                echo ("This is master branch")
+                print ('Performing UNIT tests...')
+                goUnit()
+                print ('Performing Sonar tests...')
+                goSonar()
+              }
+              if (env.BRANCH_NAME =~ /(PR)-[0-9]+$/) {
+                echo ("Pull request received, performing tests")
+                print ('Performing LINT testing...')
+                goLint()
+                print ('Performing UNIT tests...')
+                goUnit()
+                print ('Performing Sonar testing.')
+                goSonar()
+              }
+            }
+        }
+      }
+    }
+    stage ('Summarize tests results') {
+      steps {
+        script {
+          if (env.lint_status == "FAILED") {
+            score = score + 1;
+            print ("Lint tests failed")
+          }
+          if (env.unit_status == "FAILED") {
+            score = score + 1;
+            print ("Unit tests failed")
+          }
+          if (env.sonar_status == "FAILED") {
+            score = score + 1;
+            print ("Sonar returned WARN status")
+          }
+          if (score != 0) {
+            set_unstable = "yes"
+          }
+        }
+      print ('Testing score is: ' + score);
+      }
+    }
+    stage ('Set build status') {
+      steps {
+        script {
+          if (set_unstable == 'yes') {
+            currentBuild.result = 'UNSTABLE'
+          }
+          if (currentBuild.result == 'UNSTABLE') {
+            print ('Current build is unstable due errors during tests')
+          }
+        }
+      }
+    }
+  }
 }
 
 void goLint() {
@@ -85,29 +85,29 @@ void goLint() {
 }
 
 void goUnit() {
-	unit_status = sh (script:'''#!/bin/bash
-		UNIT_STATUS="PASSED"
-		python -m unittest discover ${PWD}/tests "*.py"
-		if [[ "$?" != "0" ]];
-			then
-				UNIT_STATUS="FAILED"
-		fi
-		echo $UNIT_STATUS	''',
-	returnStdout: true).trim()
+  unit_status = sh (script:'''#!/bin/bash
+    UNIT_STATUS="PASSED"
+    python -m unittest discover ${PWD}/tests "*.py"
+    if [[ "$?" != "0" ]];
+      then
+        UNIT_STATUS="FAILED"
+    fi
+    echo $UNIT_STATUS	''',
+  returnStdout: true).trim()
 }
 
 void goSonar() {
-	env.sonarqubeScannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-	withSonarQubeEnv('GlobalSonar') {
-		sh '$sonarqubeScannerHome/bin/sonar-scanner -Dsonar.projectKey=$projectKey -Dsonar.sources=. -Dsonar.exclusions=pycodestyle/**'
-	}
-	def qualitygate = waitForQualityGate()
-	if (qualitygate.status != "OK") {
-		if (qualitygate.status == "WARN") {
-			sonar_status = "FAILED"
-		}
-		else {
-			error "CRITICAL: Pipeline aborted due to quality gate coverage failure: ${qualitygate.status}"
-		}
-	}
+  env.sonarqubeScannerHome = tool name: 'SonarQubeScanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+  withSonarQubeEnv('GlobalSonar') {
+    sh '$sonarqubeScannerHome/bin/sonar-scanner -Dsonar.projectKey=$projectKey -Dsonar.sources=. -Dsonar.exclusions=pycodestyle/**'
+  }
+  def qualitygate = waitForQualityGate()
+  if (qualitygate.status != "OK") {
+    if (qualitygate.status == "WARN") {
+      sonar_status = "FAILED"
+    }
+    else {
+      error "CRITICAL: Pipeline aborted due to quality gate coverage failure: ${qualitygate.status}"
+    }
+  }
 }
