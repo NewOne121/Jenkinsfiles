@@ -6,7 +6,10 @@ pipeline {
         script {
           set_unstable = 'no'
           score = 0
+<<<<<<< HEAD
           projectKey='xyz'
+=======
+>>>>>>> 42b4a67f73a424963b333b323f5ba27a746a5880
           if (env.BRANCH_NAME =~ /^(?!.*^(master|PR-[0-9]+)).*/) {
             echo ("This is development branch, named $BRANCH_NAME")
             print ('Performing LINT testing...')
@@ -14,6 +17,7 @@ pipeline {
             print ('Performing UNIT tests...')
             goUnit()
           }
+<<<<<<< HEAD
           else {
             if (env.BRANCH_NAME =~ /(master)/) {
               echo ("This is master branch")
@@ -35,6 +39,26 @@ pipeline {
               goSonar()
             }
           }
+=======
+            else {
+              if (env.BRANCH_NAME =~ /(master)/) {
+                echo ("This is master branch")
+                print ('Performing UNIT tests...')
+                goUnit()
+                print ('Performing Sonar tests...')
+                goSonar()
+              }
+              if (env.BRANCH_NAME =~ /(PR)-[0-9]+$/) {
+                echo ("Pull request received, performing tests")
+                print ('Performing LINT testing...')
+                goLint()
+                print ('Performing UNIT tests...')
+                goUnit()
+                print ('Performing Sonar testing.')
+                goSonar()
+              }
+            }
+>>>>>>> 42b4a67f73a424963b333b323f5ba27a746a5880
         }
       }
     }
@@ -53,6 +77,7 @@ pipeline {
             score = score + 1;
             print ("Sonar returned WARN status")
           }
+<<<<<<< HEAD
           print ('Testing score is: ' + score);
           if (score == 0) {
             if (env.LASTMERGED_PR_COMMENT == "Deploy") {
@@ -60,10 +85,16 @@ pipeline {
               shipCode()
             }
           }
+=======
+>>>>>>> 42b4a67f73a424963b333b323f5ba27a746a5880
           if (score != 0) {
             set_unstable = "yes"
           }
         }
+<<<<<<< HEAD
+=======
+      print ('Testing score is: ' + score);
+>>>>>>> 42b4a67f73a424963b333b323f5ba27a746a5880
       }
     }
     stage ('Set build status') {
@@ -85,7 +116,11 @@ void goLint() {
   env.lint_status = sh (script:'''#!/bin/bash
     LINT_STATUS="PASSED"
     git clone https://github.com/PyCQA/pycodestyle.git > /dev/null 2>&1
+<<<<<<< HEAD
     ./pycodestyle/pycodestyle.py ./ --exclude=pycodestyle --max-line-length=120 --ignore=W605 -qq; ltres="$?" || true
+=======
+    ./pycodestyle/pycodestyle.py ./ --exclude=pycodestyle --ignore=E501 -qq; ltres="$?" || true
+>>>>>>> 42b4a67f73a424963b333b323f5ba27a746a5880
     if [ "$ltres" != "0" ];
       then
         LINT_STATUS="FAILED"
@@ -117,6 +152,7 @@ void goSonar() {
       sonar_status = "FAILED"
     }
     else {
+<<<<<<< HEAD
       print "CRITICAL: Pipeline aborted due to quality gate coverage failure: ${qualitygate.status}"
     }
   }
@@ -143,4 +179,9 @@ void shipCode() {
       usePromotionTimestamp: false,
       useWorkspaceInPromotion: false,
       verbose: false)]
+=======
+      error "CRITICAL: Pipeline aborted due to quality gate coverage failure: ${qualitygate.status}"
+    }
+  }
+>>>>>>> 42b4a67f73a424963b333b323f5ba27a746a5880
 }

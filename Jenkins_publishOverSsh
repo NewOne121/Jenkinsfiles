@@ -1,0 +1,49 @@
+pipeline {
+    agent any
+    stages{
+        stage ('checkout Spark and DAG code'){
+            steps {
+                    git( credentialsId: 'mycreds',
+                    url: 'ssh://git@myrepo.git'
+                    )
+            }
+        }
+        stage('publish Spark code to airflow') { 
+            steps {
+                sh '''ls -la $DAG_NAME/'''
+                sshPublisher failOnError: false,
+                publishers: [sshPublisherDesc
+                (configName: 'Spark host',
+                sshCredentials: [encryptedPassphrase: '{encpass}', username: 'username'],
+                transfers: [sshTransfer
+                (cleanRemote: false,
+                execCommand: 'chmod -R 775 /home/airflow/sparkjobs',
+                execTimeout: 120000,
+                remoteDirectory: 'home/airflow/sparkjobs',
+                removePrefix: '$DAG_NAME/jobs',
+                sourceFiles: '$DAG_NAME/jobs/**')],
+                usePromotionTimestamp: false,
+                useWorkspaceInPromotion: false,
+                verbose: false)]
+            }
+        }
+        stage('publish DAG code to airflow') { 
+            steps {
+                sshPublisher failOnError: false,
+                publishers: [sshPublisherDesc
+                (configName: 'Spark host',
+                sshCredentials: [encryptedPassphrase: '{encpass}', username: 'username'],
+                transfers: [sshTransfer
+                (cleanRemote: false,
+                execCommand: 'chmod 775 /home/airflow/dags/$DAG_NAME.py',
+                execTimeout: 120000,
+                remoteDirectory: '/home/airflow/dags',
+                removePrefix: '$DAG_NAME',
+                sourceFiles: '$DAG_NAME/*.py')],
+                usePromotionTimestamp: false,
+                useWorkspaceInPromotion: false,
+                verbose: true)]
+            }
+        }
+    }
+}
